@@ -1,0 +1,72 @@
+# Keywords to match against release titles/summaries (case-insensitive substring match).
+# Grouped by the ETF/theme they were derived from - edit freely, groups are just for
+# your own organization and don't affect matching (all terms are pooled together).
+#
+# These are deliberately specific company names/tickers, not generic category words
+# (e.g. "software", "biotech"). Generic words matched too much unrelated noise in
+# testing - a press release about an insurance app matched "software" even though it
+# had nothing to do with the software sector. Company names are what actually appear
+# in press release text.
+
+watchlist:
+  DRAM_memory:
+    - Micron Technology
+    - SK Hynix
+    - Samsung Electronics
+    - Nanya Technology
+    - Kioxia
+
+  IGV_software:
+    - Microsoft
+    - Salesforce
+    - Oracle Corporation
+    - Adobe Inc
+    - ServiceNow
+    - Intuit
+    - Synopsys
+    - Cadence Design Systems
+    - Palo Alto Networks
+    - Workday Inc
+    - Fortinet
+    - CrowdStrike
+    - Atlassian
+    - Autodesk
+
+  XLV_healthcare:
+    - UnitedHealth Group
+    - Johnson & Johnson
+    - Eli Lilly
+    - AbbVie
+    - Merck
+    - Pfizer
+    - Thermo Fisher Scientific
+    - Abbott Laboratories
+    - Danaher
+    - Bristol-Myers Squibb
+    - Amgen
+    - Medtronic
+    - Stryker
+    - Boston Scientific
+    - Vertex Pharmaceuticals
+
+  QQQ_megacap_tech:
+    - Apple Inc
+    - Amazon.com
+    - Nvidia
+    - Alphabet Inc
+    - Meta Platforms
+    - Broadcom
+    - Tesla Inc
+    - Netflix
+    - Costco Wholesale
+    - Cisco Systems
+    - Qualcomm
+    - Texas Instruments
+
+  SPY_broad_market:
+    - Berkshire Hathaway
+    - JPMorgan Chase
+    - Visa Inc
+    - Mastercard Inc
+    - Exxon Mobil
+    - Walmart

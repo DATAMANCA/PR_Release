@@ -1,0 +1,41 @@
+name: Newswire Poll
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: newswire-poll
+  cancel-in-progress: false
+
+jobs:
+  poll:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run poller
+        env:
+          APP_PASSWORD: ${{ secrets.APP_PASSWORD }}
+          SENT: ${{ secrets.SENT }}
+          TO: ${{ secrets.TO }}
+        run: python src/main.py
+
+      - name: Commit updated state
+        run: |
+          git config user.name "newswire-watch-bot"
+          git config user.email "actions@github.com"
+          git add state/seen.json
+          git diff --staged --quiet || git commit -m "chore: update seen state [skip ci]"
+          git push
