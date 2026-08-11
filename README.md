@@ -40,10 +40,27 @@ increase" the way plain substring matching did. If you add more single-word comp
 names, apply the same pattern - qualify them unless the name is genuinely unique
 (e.g. "Micron", "Nvidia" don't need it).
 
+## Current status: scheduled cron isn't firing yet
+
+As of 2026-08-11, the `schedule` trigger has not fired a single time on this repo
+(only manual "Run workflow" dispatches have run), despite everything checkable
+being correctly configured: workflow active, repo not archived/disabled/a fork,
+Actions permissions set to "Allow all actions," workflow permissions set to "Read
+and write," valid cron syntax, correct branch, and the cron offset off round
+5-minute marks per GitHub's own delay-mitigation advice. This looks like GitHub's
+anti-abuse throttling on a brand-new account/repo (reported by others in similar
+situations) rather than anything wrong with this project's code or config - it may
+resolve on its own after the account/repo has more history, or need a GitHub
+Support ticket if not.
+
+**Until it starts firing on its own, trigger runs manually:** Actions tab →
+"Newswire Poll" → Run workflow. Each run still does everything the schedule would
+have (fetch, dedup, match, email, commit state) - it's just not automatic yet.
+
 ## How it runs
 
 `.github/workflows/poll.yml` runs `src/main.py` every 5 minutes via GitHub Actions
-cron. Each run:
+cron (once the schedule actually starts firing - see above). Each run:
 1. Fetches all source feeds
 2. Skips anything already recorded in `state/seen.json`
 3. Emails everything new that matches the watchlist (one email per run, batching all matches found that run)
