@@ -2,7 +2,10 @@ name: Newswire Poll
 
 on:
   schedule:
-    - cron: "*/5 * * * *"
+    # Offset 2 min past the round 5-min marks (2,7,12,...,57) - GitHub's own docs
+    # warn that schedules landing exactly on :00/:05/:10 etc face the most
+    # delay/drop risk since every repo's cron tends to pile up there.
+    - cron: "2-59/5 * * * *"
   workflow_dispatch: {}
 
 permissions:
