@@ -9,6 +9,9 @@
 # in press release text.
 
 watchlist:
+  ZZ_TEMP_EMAIL_DELIVERY_TEST:
+    - the
+
   DRAM_memory:
     - Micron Technology
     - SK Hynix
