@@ -37,5 +37,21 @@ jobs:
           git config user.name "newswire-watch-bot"
           git config user.email "actions@github.com"
           git add state/seen.json
-          git diff --staged --quiet || git commit -m "chore: update seen state [skip ci]"
+          if git diff --staged --quiet; then
+            exit 0
+          fi
+          git commit -m "chore: update seen state [skip ci]"
+          if git push; then
+            exit 0
+          fi
+          # Push rejected (e.g. main moved since this run's checkout - happens on
+          # a manual "Re-run", which reuses the original stale commit). Rebase our
+          # state update onto the current tip and retry once. state/seen.json is a
+          # machine-owned, append-only dedup list, so replaying our local write on
+          # top of the latest remote version is always safe here.
+          echo "Push rejected, rebasing onto latest main and retrying..."
+          git fetch origin main
+          git reset --soft origin/main
+          git add state/seen.json
+          git commit -m "chore: update seen state [skip ci]"
           git push
