@@ -2,21 +2,17 @@
 
 Polls free newswire RSS/Atom feeds, matches releases against a watchlist of company
 names, and emails matches from `stewartbriggs655@gmail.com` to
-`mmautom_258@outlook.com`. Runs on GitHub Actions' free tier - no server, no paid APIs.
+`mmautom_258@outlook.com`. Runs locally via Windows Task Scheduler every 5 minutes -
+no server, no paid APIs.
 
-Repo: https://github.com/DATAMANCA/PR_Release
+Repo: https://github.com/DATAMANCA/PR_Release (code storage only - nothing runs on
+GitHub Actions anymore, see "Why not GitHub Actions" below)
 
 ## Sources (all free, no API key)
 
 - PRNewswire: All News, Financial Services, Health, Biotechnology, Computer & Electronics, Consumer Technology
 - GlobeNewswire: Public Companies
 - SEC EDGAR: real-time 8-K filings (material corporate events)
-
-**Known limitation:** PRNewswire and GlobeNewswire feeds only expose their most
-recent ~20 items each. On a busy news day that window can turn over in well under
-10 minutes, so infrequent polling risks missing releases. SEC EDGAR's feed returns
-up to 100 items and isn't affected by this. The workflow polls every 5 minutes,
-which reduces but doesn't eliminate the risk.
 
 ## Watchlist
 
@@ -40,31 +36,29 @@ increase" the way plain substring matching did. If you add more single-word comp
 names, apply the same pattern - qualify them unless the name is genuinely unique
 (e.g. "Micron", "Nvidia" don't need it).
 
-## Current status: scheduled cron isn't firing yet
+## Why not GitHub Actions
 
-As of 2026-08-11, the `schedule` trigger has not fired a single time on this repo
-(only manual "Run workflow" dispatches have run), despite everything checkable
-being correctly configured: workflow active, repo not archived/disabled/a fork,
-Actions permissions set to "Allow all actions," workflow permissions set to "Read
-and write," valid cron syntax, correct branch, and the cron offset off round
-5-minute marks per GitHub's own delay-mitigation advice. This looks like GitHub's
-anti-abuse throttling on a brand-new account/repo (reported by others in similar
-situations) rather than anything wrong with this project's code or config - it may
-resolve on its own after the account/repo has more history, or need a GitHub
-Support ticket if not.
+This originally ran on GitHub Actions' free scheduled-workflow tier. In practice,
+on a brand-new account/repo, GitHub's `schedule` trigger fired at 2-7 hour
+intervals instead of the configured 5 minutes - anti-abuse throttling, not a config
+error (everything checkable was correctly set: workflow active, permissions,
+cron syntax, offset off round marks). Combined with PRNewswire/GlobeNewswire only
+exposing their ~20 most recent items, multi-hour gaps meant releases were rolling
+out of those feeds before ever being polled - so real matches were being missed
+almost entirely. Moved to a local Windows Task Scheduler job instead, which runs
+on real 5-minute ticks since it isn't subject to that throttling.
 
-**Until it starts firing on its own, trigger runs manually:** Actions tab →
-"Newswire Poll" → Run workflow. Each run still does everything the schedule would
-have (fetch, dedup, match, email, commit state) - it's just not automatic yet.
+The GitHub repo is now code storage / version history only - nothing executes
+there.
 
 ## How it runs
 
-`.github/workflows/poll.yml` runs `src/main.py` every 5 minutes via GitHub Actions
-cron (once the schedule actually starts firing - see above). Each run:
+`scripts/run_poller.ps1` runs `src/main.py` every 5 minutes via a Windows Task
+Scheduler job (`NewswireWatch`). Each run:
 1. Fetches all source feeds
 2. Skips anything already recorded in `state/seen.json`
 3. Emails everything new that matches the watchlist (one email per run, batching all matches found that run)
-4. Commits the updated `state/seen.json` back to the repo so state persists between runs
+4. Updates `state/seen.json` locally so state persists between runs
 
 The very first run just records every currently-live item as "seen" without
 emailing - otherwise you'd get a flood of a few hundred backlog items on day one.
@@ -74,9 +68,8 @@ fails and that match is deliberately **not** marked as seen - it gets picked up 
 retried on the next run instead of being silently lost. Everything else
 (non-matches) is still recorded as seen immediately either way.
 
-A `concurrency` guard prevents a manual "Run workflow" dispatch from overlapping
-with a scheduled run - without it, both could start from the same state and
-double-email the same match.
+`state/seen.json` is gitignored - it's local runtime state now, not committed back
+to the repo.
 
 ## Setup
 
@@ -91,62 +84,37 @@ SMTP login needs an App Password, not the regular account password.
 5. Create an app password - name it something like `newswire-watch`.
 6. Copy the 16-character password shown.
 
-### 2. Push this code to https://github.com/DATAMANCA/PR_Release
-
-```bash
-cd newswire-watch
-git init
-git add .
-git commit -m "Initial commit"
-git remote add origin https://github.com/DATAMANCA/PR_Release.git
-git branch -M main
-git push -u origin main
-```
-
-### 3. Add repo secrets
-
-Already added under **Settings → Secrets and variables → Actions**:
-
-- `APP_PASSWORD` - the Gmail App Password from step 1
-- `SENT` - `stewartbriggs655@gmail.com` (the sender/SMTP login)
-- `TO` - `mmautom_258@outlook.com` (the recipient)
-
-### 4. Allow the workflow to push commits
-
-**Settings → Actions → General → Workflow permissions** → select
-**"Read and write permissions"** → Save.
-
-(This lets the workflow commit `state/seen.json` back to the repo after each run.)
-
-### 5. Test it manually
-
-**Actions tab → Newswire Poll → Run workflow**. Check the run logs - first run should
-say "Bootstrap run: seeded N known items, no email sent." Run it again a bit later;
-if any new release matches your watchlist you'll get an email.
-
-## Running locally instead
+### 2. Set up locally
 
 ```bash
 python -m venv .venv
 .venv\Scripts\activate       # Windows
 pip install -r requirements.txt
 copy .env.example .env       # then fill in SENT / TO / APP_PASSWORD
-python src/main.py
+python src\main.py           # test run
 ```
 
-`.env` is gitignored - never commit it. Locally, credentials are read from `.env`;
-on GitHub Actions, they come from the repo secrets above via the workflow's `env:` block.
+`.env` is gitignored - never commit it.
+
+### 3. Register the Task Scheduler job
+
+```powershell
+schtasks /create /tn "NewswireWatch" /tr "powershell.exe -ExecutionPolicy Bypass -File \"<repo path>\scripts\run_poller.ps1\"" /sc minute /mo 5 /f
+```
+
+Check `state\run.log` after a few cycles to confirm it's firing and see each run's
+output (bootstrap/matches/errors).
 
 ## Limitations
 
-- **Not truly real-time.** GitHub Actions scheduled workflows aren't guaranteed to
-  run exactly on schedule - GitHub documents that scheduled runs can be delayed,
-  especially during high load. Treat this as "checks every 5-15 minutes," not
-  instant push alerts.
-- **GitHub auto-disables scheduled workflows after 60 days of repo inactivity.**
-  The bot's own state commits should keep resetting that clock as long as it keeps
-  finding new items - but if it goes quiet for 60+ days, re-enable manually from
-  the Actions tab.
+- **Only runs while this machine is on.** Unlike a cloud scheduler, Task Scheduler
+  can't fire while the PC is off/asleep - missed windows are just skipped (no
+  backlog replay beyond what's still in each feed's current window when it next runs).
 - **No true real-time wire (PRNewswire/BusinessWire full firehose, Dow Jones,
   Bloomberg, etc.) is free.** This uses the free public RSS categories those
   services expose, plus SEC EDGAR.
+- **Known limitation:** PRNewswire and GlobeNewswire feeds only expose their most
+  recent ~20 items each. On a busy news day that window can turn over in well under
+  10 minutes, so infrequent polling risks missing releases. SEC EDGAR's feed returns
+  up to 100 items and isn't affected by this. Polling every 5 minutes on real ticks
+  (see above) reduces but doesn't eliminate the risk.
